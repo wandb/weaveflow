@@ -6,12 +6,23 @@ The features are builtin to a branch of our weave library.
 
 ## Setup
 
-Make a pyenv, and install the requirements.
+Make a pyenv
 
 ```
 pyenv virtualenv 3.10.7 weaveflow
 pyenv local weaveflow
-pip install -r requirements.txt
+```
+
+Install the weave package from the weaveflow branch.
+
+```
+pip install git+https://github.com/wandb/weave@weaveflow
+```
+
+Run the prototype UI
+
+```
+weave ui
 ```
 
 ## Examples
@@ -22,6 +33,4 @@ Try the examples!
 
 ## Docs
 
-Read the docs
-
-[Docs](docs/)
+[Read the docs](docs/)

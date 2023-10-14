@@ -12,7 +12,7 @@ Try the [text extraction example](/examples/text-extract/)
 
 ## Overview
 
-Weaveflow is built on a few very simple concepts to enable AI workflows...
+Weave makes it very to easy to keep track of everything that happens in the process of building AI applications.
 
 ## UI
 
@@ -24,11 +24,10 @@ For now, run the prototype UI locally using the `weave ui` command.
 
 ### weave.init
 
-Start tracking any called ops, by logging their code, inputs and outputs and metadata.
+Must be called to enable op logging.
 
 ```
 weave.init(f'<entity>/<project>')
-
 ```
 
 ### weave.publish
@@ -49,7 +48,7 @@ You can publish the following python types:
 - list (but it's recommended to wrap large lists with weave.WeaveList. This will soon be automatic)
 - objects from classes decorated with @weave.type()
 
-### weave.ref (and ref.get())
+### weave.ref
 
 Get published object versions back into Python.
 
@@ -94,11 +93,34 @@ def predict(doc: str) -> typing.Any:
 
 Create a class that can be published.
 
+Attributes must be annotated with python types. And methods should be decorated with weave.op().
+
 ```
 @weave.type()
 class Prompt:
     text: str
 
+prompt = Prompt('Solve the equation: {equation}')
+
+prompt_ref = weave.publish(prompt)
+```
+
+## Builtin base types
+
+There are a few builtin base types.
+
+### Dataset
+
+```
+dataset = Dataset(weave.WeaveList([{'a': 5, 'b': 6}, {'a': 7, 'd': 9}]))
+weave.publish(dataset, 'my-dataset')
+```
+
+### Model
+
+The "root class" in an inheritance hierarchy is used for organizational purposes in the UI. In the example below, weave.Model is the root class for OpenAIChatModel, so OpenAIChatModel will be organized as a "Model" in the UI.
+
+```
 @weave.type()
 class OpenAIChatModel(weave.Model):
     model_name: str
@@ -119,20 +141,14 @@ class OpenAIChatModel(weave.Model):
             'name': parsed['name'],
             'shares': int(parsed['shares'])
         }
+
 ```
-
-## Builtin base types
-
-Dataset
-
-...
-
-Model
-
-...
 
 ## Integrations
 
-openai
+Our openai wrapper will automatically log spans with Weave tracing, if weave.init has been called.
 
-...
+```
+from weave.monitoring import openai
+openai.ChatCompletion.create(model='gpt-3.5-turbo', messages=[{'role': 'user', 'content': 'hello'}])
+```

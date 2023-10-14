@@ -1,6 +1,0 @@
-wandb @ git+https://github.com/wandb/wandb@cbedc5423d33c61dd80bf731b548e3d9c3e06a2f
-weave @ git+https://github.com/wandb/weave@1467775860b3c3a9169396bfebfcdd0aa2584316t
-openai
-tiktoken
-fastapi
-uvicorn

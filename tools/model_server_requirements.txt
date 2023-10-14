@@ -1,0 +1,3 @@
+weave @ git+https://github.com/wandb/weave@weaveflow
+fastapi
+uvicorn
