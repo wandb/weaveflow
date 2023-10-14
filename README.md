@@ -16,8 +16,12 @@ pip install -r requirements.txt
 
 ## Examples
 
+Try the examples!
+
 [Text extraction](examples/text-extract/)
 
 ## Docs
+
+Read the docs
 
 [Docs](docs/)

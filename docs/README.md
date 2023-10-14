@@ -14,6 +14,12 @@ Try the [text extraction example](/examples/text-extract/)
 
 Weaveflow is built on a few very simple concepts to enable AI workflows...
 
+## UI
+
+The hosted UI will be available at wandb.ai soon.
+
+For now, run the prototype UI locally using the `weave ui` command.
+
 ## API
 
 ### weave.init
