@@ -2,13 +2,10 @@ import dataclasses
 import weave
 import typing
 import time
-import base_types
 
 import pandas as pd
 
 from weave import ops_arrow
-
-import cli
 
 
 def p_r_f1(tp: int, fp: int, fn: int) -> typing.Tuple[float, float, float]:
@@ -104,7 +101,7 @@ class EvaluateMultiTaskF1Config(typing.TypedDict):
 
 @weave.op()
 def evaluate_multi_task_f1(
-    dataset: base_types.Dataset, model: base_types.Model
+    dataset: weave.Dataset, model: weave.Model
 ) -> typing.Any:
     result = []
     latencies = []
@@ -132,11 +129,3 @@ def evaluate_multi_task_f1(
         "summary": summarize(eval_table.column("summary"), tasks),
         "eval_table": eval_table,
     }
-
-
-def main():
-    cli.weave_op_main(evaluate_multi_task_f1)
-
-
-if __name__ == "__main__":
-    main()
