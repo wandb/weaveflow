@@ -1,5 +1,5 @@
 wandb @ git+https://github.com/wandb/wandb@cbedc5423d33c61dd80bf731b548e3d9c3e06a2f
-weave @ git+https://github.com/wandb/weave@7b741ca8dcf0058a91bb8c31e69662efb8256f0c
+weave @ git+https://github.com/wandb/weave@1467775860b3c3a9169396bfebfcdd0aa2584316
 openai
 tiktoken
 fastapi
