@@ -45,7 +45,8 @@ You can publish the following python types:
 - float
 - str
 - dict
-- list (but it's recommended to wrap large lists with weave.WeaveList. This will soon be automatic)
+- list
+- weave.WeaveList: a fast and powerful table built on apache arrow
 - objects from classes decorated with @weave.type()
 
 ### weave.ref
@@ -112,7 +113,7 @@ There are a few builtin base types.
 ### Dataset
 
 ```
-dataset = Dataset(weave.WeaveList([{'a': 5, 'b': 6}, {'a': 7, 'd': 9}]))
+dataset = Dataset([{'a': 5, 'b': 6}, {'a': 7, 'd': 9}])
 weave.publish(dataset, 'my-dataset')
 ```
 

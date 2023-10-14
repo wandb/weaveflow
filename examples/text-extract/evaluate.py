@@ -100,9 +100,7 @@ class EvaluateMultiTaskF1Config(typing.TypedDict):
 
 
 @weave.op()
-def evaluate_multi_task_f1(
-    dataset: weave.Dataset, model: weave.Model
-) -> typing.Any:
+def evaluate_multi_task_f1(dataset: weave.Dataset, model: weave.Model) -> typing.Any:
     result = []
     latencies = []
     for row in dataset.rows:
