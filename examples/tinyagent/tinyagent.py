@@ -17,12 +17,14 @@
 # But I expect you could get it to do something bad if you tried.
 
 import argparse
+import dataclasses
 import datetime
 import json
 import os
 import subprocess
 import time
 import typing
+import sys
 import weave
 
 from weave.monitoring import openai
@@ -214,138 +216,190 @@ def summarize(summary: str, messages: typing.Any) -> str:
 
 
 @weave.type()
+class TinyAgentState:
+    files: dict[str, str] = dataclasses.field(default_factory=dict)
+    summary: str = ""
+    messages: list[typing.Any] = dataclasses.field(default_factory=list)
+
+
+def read_files_in_dir(root_dir: str):
+    file_dict = {}
+    for dirpath, _, filenames in os.walk(root_dir):
+        for filename in filenames:
+            filepath = os.path.join(dirpath, filename)
+            relative_filepath = os.path.relpath(filepath, root_dir)
+            with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+                file_dict[relative_filepath] = f.read()
+    return file_dict
+
+
+@weave.type()
 class TinyAgent:
     system_prompt: str
 
     @weave.op()
-    def run(self, start_dir: typing.Optional[str]) -> None:
-        # Summary of the earlier part of the conversation, to handle context overflow.
-        summary = ""
+    def step(self, state: TinyAgentState) -> TinyAgentState:
+        working_dir = self._working_dir
+        os.chdir(working_dir)
 
-        # The set of messages in the conversation, truncated in the case of context overflow.
-        messages = []
+        for filepath, content in state.files.items():
+            dirname = os.path.dirname(filepath)
+            if dirname:
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            with open(filepath, "w") as f:
+                f.write(content)
 
-        # starting message
-        messages.append(
-            {
-                "role": "user",
-                "content": f"You are starting in a directory (maybe a git repo) that someone has already worked on. Familiarize yourself with the directory, and then ask for instructions.",
-            }
-        )
+        messages = state.messages
+        summary = state.summary
 
-        if start_dir is not None:
-            dir_name = start_dir
-        else:
-            current_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            dir_name = f"/tmp/agent_{current_timestamp}"
-            os.makedirs(dir_name)
-        os.chdir(dir_name)
-
-        print("Working dir: ", dir_name)
-        print("ENTER TO START")
-        input()
-
-        while True:
-            try:
-                # The set of all messages we send to OpenAI is:
-                # - the system prompt
-                # - the summary of the earlier part of the conversation
-                # - the tail of messages in the conversation
-                all_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-                if summary:
-                    all_messages.append(
-                        {
-                            "role": "system",
-                            "content": "The following is a summary of the earlier part of the conversation: "
-                            + summary,
-                        }
-                    )
-                all_messages += messages
-                response = openai_chatcompletion(
-                    # model="gpt-3.5-turbo-0613",
-                    model="gpt-4",
-                    messages=all_messages,
-                    functions=agent_function_specs,
-                    function_call="auto",  # auto is default, but we'll be explicit
-                )
-            except openai.error.InvalidRequestError as e:
-                if "maximum context length" in str(e):
-                    # When we exceed context length, compact the conversatoin
-                    # by using gpt-4 to summarize the existing summary + first half of messages.
-                    # Then, continue the conversation with the second half of messages.
-                    messages_len = len(messages)
-                    first_half = messages[: messages_len // 2]
-                    second_half = messages[messages_len // 2 :]
-                    print("LENGTH EXCEEDED, COMPACTING")
-                    summary = summarize(summary, first_half)
-                    print("Summary: ", summary)
-                    messages = second_half
-                    continue
-                else:
-                    raise e
-
-            response_message = response["choices"][0]["message"]
-            messages.append(response_message)
-
-            # The response can include conversation-level content, as well as a functoin
-            # call.
-            if response_message.get("content"):
-                print("Agent: ", json.dumps(response_message.get("content")))
-                if not response_message.get("function_call"):
-                    # If there's no function call, ask for user input, the agent is just
-                    # stating something. There are many ways you could change this part
-                    # of the code.
-                    # if "NEED_INPUT" in response_message["content"]:
-                    user_input = input("User: ")
-                    messages.append({"role": "user", "content": user_input})
-            if response_message.get("function_call"):
-                # The agent is calling a function. Call it!
-                function_name = response_message["function_call"]["name"]
-                function_to_call = globals()[function_name]
-                function_response = None
-                try:
-                    function_args = json.loads(
-                        response_message["function_call"]["arguments"]
-                    )
-                    print("Agent calling function: ", function_name, end=" ")
-                    if len(function_args) > 0:
-                        print(list(function_args.values())[0], end=" ")
-                    if len(function_args) > 1:
-                        print("...")
-                    else:
-                        print()
-                except json.decoder.JSONDecodeError as e:
-                    # This happens periodically, because the model generates invalid json.
-                    # We'll write the parse exception as the response for the function call
-                    # and the model will fix it on the next call! (I have not seen this fail)
-                    function_response = str(e)
-                    print(
-                        "  Function call error:", function_name, "ARGUMENT PARSE ERROR"
-                    )
-                if not function_response:
-                    function_response = function_to_call(**function_args)
-                print("  Function result:", function_response[:100] + "...")
-
-                messages.append(
+        try:
+            # The set of all messages we send to OpenAI is:
+            # - the system prompt
+            # - the summary of the earlier part of the conversation
+            # - the tail of messages in the conversation
+            all_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+            if summary:
+                all_messages.append(
                     {
-                        "role": "function",
-                        "name": function_name,
-                        "content": function_response,
+                        "role": "system",
+                        "content": "The following is a summary of the earlier part of the conversation: "
+                        + summary,
                     }
                 )
-            print()
+            all_messages += [
+                {k: v for k, v in m.items() if (k == "content" or v != None)}
+                for m in messages
+            ]
+            response = openai_chatcompletion(
+                # model="gpt-3.5-turbo-0613",
+                model="gpt-4",
+                messages=all_messages,
+                functions=agent_function_specs,
+                function_call="auto",  # auto is default, but we'll be explicit
+            )
+        except openai.error.InvalidRequestError as e:
+            if "maximum context length" in str(e):
+                # When we exceed context length, compact the conversatoin
+                # by using gpt-4 to summarize the existing summary + first half of messages.
+                # Then, continue the conversation with the second half of messages.
+                messages_len = len(messages)
+                first_half = messages[: messages_len // 2]
+                second_half = messages[messages_len // 2 :]
+                print("LENGTH EXCEEDED, COMPACTING")
+                summary = summarize(summary, first_half)
+                print("Summary: ", summary)
+                messages = second_half
+                return TinyAgentState(
+                    files=read_files_in_dir(working_dir),
+                    summary=summary,
+                    messages=messages,
+                )
+            else:
+                raise e
+
+        response_message = response["choices"][0]["message"]
+        messages.append(response_message)
+
+        # The response can include conversation-level content, as well as a functoin
+        # call.
+        if response_message.get("content"):
+            print("Agent: ", json.dumps(response_message.get("content")))
+            if not response_message.get("function_call"):
+                # If there's no function call, ask for user input, the agent is just
+                # stating something. There are many ways you could change this part
+                # of the code.
+                # if "NEED_INPUT" in response_message["content"]:
+                user_input = input("User: ")
+                messages.append({"role": "user", "content": user_input})
+        if response_message.get("function_call"):
+            # The agent is calling a function. Call it!
+            function_name = response_message["function_call"]["name"]
+            function_to_call = globals()[function_name]
+            function_response = None
+            try:
+                function_args = json.loads(
+                    response_message["function_call"]["arguments"]
+                )
+                print("Agent calling function: ", function_name, end=" ")
+                if len(function_args) > 0:
+                    print(list(function_args.values())[0], end=" ")
+                if len(function_args) > 1:
+                    print("...")
+                else:
+                    print()
+            except json.decoder.JSONDecodeError as e:
+                # This happens periodically, because the model generates invalid json.
+                # We'll write the parse exception as the response for the function call
+                # and the model will fix it on the next call! (I have not seen this fail)
+                function_response = str(e)
+                print("  Function call error:", function_name, "ARGUMENT PARSE ERROR")
+            if not function_response:
+                function_response = function_to_call(**function_args)
+            print("  Function result:", function_response[:100] + "...")
+
+            messages.append(
+                {
+                    "role": "function",
+                    "name": function_name,
+                    "content": function_response,
+                }
+            )
+        print()
+
+        return TinyAgentState(
+            files=read_files_in_dir(working_dir),
+            summary=summary,
+            messages=messages,
+        )
+
+    @weave.op()
+    def run(self, state: TinyAgentState) -> None:
+        current_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        dir_name = f"/tmp/agent_{current_timestamp}"
+        os.makedirs(dir_name)
+
+        self.__dict__["_working_dir"] = dir_name
+
+        while True:
+            state = self.step(state)
+            print("STATE", state)
 
 
 def main():
-    weave.init("tinyagent4")
+    weave.init("tinyagent9")
     parser = argparse.ArgumentParser(description="Agent")
-    parser.add_argument("--start_dir", type=str, help="Starting directory")
+    parser.add_argument("--state_ref", type=str, help="State ref")
+    parser.add_argument("--start_dir", type=str, help="State ref")
+
+    if args.start_ref and args.start_dir:
+        print("Specify only one of --state_ref or --start_dir")
+        sys.exit(1)
 
     args = parser.parse_args()
-    start_dir = args.start_dir
+    if args.start_dir:
+        state = TinyAgentState(
+            files=read_files_in_dir(args.start_dir),
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"You are starting in a directory (maybe a git repo) that someone has already worked on. Familiarize yourself with the directory, and then ask for instructions.",
+                }
+            ],
+        )
+    elif args.state_ref:
+        state = weave.ref(args.state_ref).get()
+    else:
+        state = TinyAgentState(
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"You are starting in a directory (maybe a git repo) that someone has already worked on. Familiarize yourself with the directory, and then ask for instructions.",
+                }
+            ]
+        )
 
     agent = TinyAgent(SYSTEM_PROMPT)
-    agent.run(start_dir)
+    agent.run(state)
 
 
 if __name__ == "__main__":
