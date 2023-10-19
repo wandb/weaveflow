@@ -371,11 +371,11 @@ def main():
     parser.add_argument("--state_ref", type=str, help="State ref")
     parser.add_argument("--start_dir", type=str, help="State ref")
 
-    if args.start_ref and args.start_dir:
+    args = parser.parse_args()
+    if args.state_ref and args.start_dir:
         print("Specify only one of --state_ref or --start_dir")
         sys.exit(1)
 
-    args = parser.parse_args()
     if args.start_dir:
         state = TinyAgentState(
             files=read_files_in_dir(args.start_dir),
