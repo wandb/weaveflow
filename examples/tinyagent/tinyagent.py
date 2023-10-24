@@ -366,12 +366,12 @@ class TinyAgent:
 
 
 def main():
-    weave.init("tinyagent9")
+    weave.init("tinyagent10")
     parser = argparse.ArgumentParser(description="Agent")
     parser.add_argument("--state_ref", type=str, help="State ref")
     parser.add_argument("--start_dir", type=str, help="State ref")
-
     args = parser.parse_args()
+
     if args.state_ref and args.start_dir:
         print("Specify only one of --state_ref or --start_dir")
         sys.exit(1)
