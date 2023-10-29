@@ -27,9 +27,7 @@ weave ui
 
 ## Examples
 
-Try the examples!
-
-[Text extraction](examples/text-extract/)
+[Try the examples!](examples/)
 
 ## Docs
 
