@@ -2,6 +2,8 @@
 
 Weaveflow is a prototype of our next generation AI tooling.
 
+"Weaveflow" is a working title. Ultimately this experience will become part of weave or wandb
+
 The features are builtin to a branch of our weave library.
 
 ## Setup
