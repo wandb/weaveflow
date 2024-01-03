@@ -9,6 +9,7 @@ class SingleStepModel(weaveflow.Model):
     chat_model: weaveflow.ChatModel
     example_adaptor: example_adaptor.ExampleAdaptor
 
+    @weave.op()
     def predict(self, example: typing.Any) -> typing.Any:
         import os
         import json
