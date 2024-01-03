@@ -26,6 +26,7 @@ import time
 import typing
 import sys
 import weave
+from weave import weaveflow
 
 from weave.monitoring import openai
 
@@ -46,6 +47,8 @@ You are an agent that can write software.
 - You are a TDD wizard, you write tests first, and re-execute your tests frequently.
 """
 
+LENGTH_LIMIT = 1000
+
 
 @weave.op()
 def run_shell_command(command: str) -> str:
@@ -64,6 +67,13 @@ def run_shell_command(command: str) -> str:
         exit_code = -1
         stdout = ""
         stderr = str(e)
+
+    if len(stdout) > LENGTH_LIMIT:
+        stdout = stdout[:LENGTH_LIMIT]
+        stdout += "\n... (truncated)"
+    if len(stderr) > LENGTH_LIMIT:
+        stderr = stderr[:LENGTH_LIMIT]
+        stderr += "\n... (truncated)"
 
     return json.dumps({"exit_code": exit_code, "stdout": stdout, "stderr": stderr})
 
@@ -104,7 +114,11 @@ run_shell_command_spec = {
 @weave.op()
 def list_files(directory: str) -> list[str]:
     try:
-        return json.dumps(os.listdir(directory))
+        result = json.dumps(os.listdir(directory))
+        if len(result) > LENGTH_LIMIT:
+            result = result[:LENGTH_LIMIT]
+            result += "\n... (truncated)"
+        return result
     except Exception as e:
         return json.dumps([str(e)])
 
@@ -157,7 +171,11 @@ write_to_file_spec = {
 def read_from_file(path: str) -> str:
     try:
         with open(path, "r") as f:
-            return f.read()
+            result = f.read()
+            if len(result) > LENGTH_LIMIT:
+                result = result[:LENGTH_LIMIT]
+                result += "\n... (truncated)"
+            return result
     except Exception as e:
         return str(e)
 
@@ -397,6 +415,7 @@ def main():
                 }
             ]
         )
+    print("STATE", state)
 
     agent = TinyAgent(SYSTEM_PROMPT)
     agent.run(state)
