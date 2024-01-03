@@ -18,7 +18,7 @@ pyenv local weaveflow
 Install the weave package from the weaveflow branch.
 
 ```
-pip install git+https://github.com/wandb/weave@weaveflow
+pip install git+https://github.com/wandb/weave
 ```
 
 Run the prototype UI
