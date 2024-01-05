@@ -6,6 +6,8 @@ import player_random
 import player_llm
 from typing import AsyncIterator, Callable, Iterable, Tuple, TypeVar, Awaitable
 
+import project_settings
+
 T = TypeVar("T")
 U = TypeVar("U")
 
@@ -34,12 +36,7 @@ async def move_and_score(example, model):
     position = example["position"]
     move = await model.move(position)
 
-    # TODO: have to filter none because weavelist adds them
-    scores = {
-        move: score
-        for move, score in example["moves_scores"].items()
-        if score is not None
-    }
+    scores = {ms["move"]: ms["score"] for ms in example["moves_scores"]}
     min_score = min(scores.values())
     max_score = max(scores.values())
     range_scores = max_score - min_score
@@ -86,7 +83,7 @@ You always think out loud through large trees of moves using SAN notation, befor
 """
     # model = player_llm.LLMPlayer(1, system_message, "gpt-3.5-turbo")
 
-    weave.init("wf-chess5")
+    weave.init(project_settings.project_name)
 
     dataset = weave.ref("dataset-10").get()
 

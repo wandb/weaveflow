@@ -7,6 +7,9 @@ import weave
 from weave import weaveflow
 
 
+import project_settings
+
+
 def generate_random_chess_dataset(large_dataset_path, small_dataset_size=25):
     engine = chess.engine.SimpleEngine.popen_uci("stockfish")
     engine.configure({"Threads": 8, "Hash": 16000})
@@ -36,11 +39,11 @@ def generate_random_chess_dataset(large_dataset_path, small_dataset_size=25):
         info = engine.analyse(board, chess.engine.Limit(time=5), multipv=20)
 
         # Prepare moves and their scores
-        moves_scores = {}
+        moves_scores = []
         for item in info:
             move = item.get("pv")[0]
             score = item.get("score").relative.score(mate_score=100000)
-            moves_scores[move.uci()] = score
+            moves_scores.append({"move": move.uci(), "score": score})
 
         # Add to the small dataset
         small_dataset.append(
@@ -58,5 +61,5 @@ def generate_random_chess_dataset(large_dataset_path, small_dataset_size=25):
 
 if __name__ == "__main__":
     dataset = generate_random_chess_dataset("games.csv", small_dataset_size=10)
-    weave.init("wf-chess5")
+    weave.init(project_settings.project_name)
     weave.publish(weaveflow.Dataset(dataset), "dataset-10")
