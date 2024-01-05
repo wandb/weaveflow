@@ -13,7 +13,7 @@ class LLMPlayer(Player):
     model_name: str = "gpt-4"
 
     @weave.op()
-    def move(self, board_fen: str) -> str:
+    async def move(self, board_fen: str) -> str:
         import random
         import re
         import chess
@@ -22,7 +22,7 @@ class LLMPlayer(Player):
 
         patch()
 
-        client = openai.OpenAI()
+        client = openai.AsyncOpenAI()
 
         board = chess.Board(board_fen)
 
@@ -53,7 +53,7 @@ class LLMPlayer(Player):
         ]
         print("LLM PROMPT:", prompt)
         for i in range(self.max_steps):
-            response = client.chat.completions.create(
+            response = await client.chat.completions.create(
                 model=model_name, messages=messages
             )
             response_message = response.choices[0].message

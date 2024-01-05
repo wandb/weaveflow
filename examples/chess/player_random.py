@@ -8,7 +8,7 @@ from player import Player
 @weave.type()
 class RandomPlayer(Player):
     @weave.op()
-    def move(self, board_fen: str) -> str:
+    async def move(self, board_fen: str) -> str:
         import chess
         import random
 

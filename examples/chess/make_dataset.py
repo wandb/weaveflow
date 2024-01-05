@@ -58,5 +58,5 @@ def generate_random_chess_dataset(large_dataset_path, small_dataset_size=25):
 
 if __name__ == "__main__":
     dataset = generate_random_chess_dataset("games.csv", small_dataset_size=10)
-    weave.init("wf-chess2")
+    weave.init("wf-chess5")
     weave.publish(weaveflow.Dataset(dataset), "dataset-10")
