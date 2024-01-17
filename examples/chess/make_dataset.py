@@ -17,17 +17,18 @@ def generate_random_chess_dataset(large_dataset_path, small_dataset_size=25):
     # Load the large dataset
     df = pd.read_csv(large_dataset_path)
 
-    # Select a random subset of games
-    sampled_df = df.sample(n=min(small_dataset_size, len(df)))
-
     small_dataset = []
 
-    for index, row in tqdm.tqdm(sampled_df.iterrows()):
-        board = chess.Board()
-        moves = row["moves"].split(" ")
-        # Choose a random turn within the game, dropping the last 2 moves
+    for i in tqdm.tqdm(range(small_dataset_size)):
+        while True:
+            row = df.sample(n=1).iloc[0]
+            moves = row["moves"].split(" ")
+            # Choose a random turn within the game, dropping the last 2 moves
+            if len(moves) >= 10:
+                break
         turn_index = random.randint(0, len(moves) - 3)
 
+        board = chess.Board()
         for move in moves[: turn_index + 1]:
             try:
                 board.push_san(move)
@@ -60,6 +61,6 @@ def generate_random_chess_dataset(large_dataset_path, small_dataset_size=25):
 
 
 if __name__ == "__main__":
-    dataset = generate_random_chess_dataset("games.csv", small_dataset_size=10)
+    dataset = generate_random_chess_dataset("games.csv", small_dataset_size=25)
     weave.init(project_settings.project_name)
     weave.publish(weaveflow.Dataset(dataset), "dataset-10")

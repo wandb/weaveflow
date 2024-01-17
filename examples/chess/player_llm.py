@@ -2,26 +2,22 @@ import weave
 import chess
 import random
 import re
+import random
+import re
+import chess
+import openai
 
-from player import Player
+from weave.weaveflow import Model
 
 
 @weave.type()
-class LLMPlayer(Player):
+class LLMPlayer(Model):
     max_steps: int
     system_message: str
     model_name: str = "gpt-4"
 
     @weave.op()
-    async def move(self, board_fen: str) -> str:
-        import random
-        import re
-        import chess
-        import openai
-        from weave.monitoring.openai import patch
-
-        patch()
-
+    async def predict(self, board_fen: str) -> str:
         client = openai.AsyncOpenAI()
 
         board = chess.Board(board_fen)
@@ -56,6 +52,7 @@ class LLMPlayer(Player):
             response = await client.chat.completions.create(
                 model=model_name, messages=messages
             )
+            print("GOT RESPONSE", response)
             response_message = response.choices[0].message
             if response_message.content is None:
                 raise ValueError("Response message content is None")
@@ -81,7 +78,7 @@ class LLMPlayer(Player):
                 except:
                     feedback = f"Couldn't parse your move {next_move} in UCI format."
 
-            messages.append(response_message)
+            messages.append(response_message.model_dump(exclude_unset=True))
             feedback_message = f"Error: {feedback}\n\nHere is the current board state:\n\n{str(board)}\n"
             print(feedback_message)
             messages.append({"role": "user", "content": feedback_message})

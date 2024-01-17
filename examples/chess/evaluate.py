@@ -1,41 +1,15 @@
 import weave
-import math
 import asyncio
+from weave.weaveflow import evaluate
 
 import player_random
 import player_llm
-from typing import AsyncIterator, Callable, Iterable, Tuple, TypeVar, Awaitable
 
 import project_settings
 
-T = TypeVar("T")
-U = TypeVar("U")
-
-
-async def async_map(
-    sequence: Iterable[T],
-    func: Callable[[T], Awaitable[U]],
-    max_concurrent_tasks: int,
-) -> AsyncIterator[Tuple[T, U]]:
-    semaphore = asyncio.Semaphore(max_concurrent_tasks)
-
-    async def process_item(item: T) -> Tuple[T, U]:
-        async with semaphore:
-            result = await func(item)
-            return item, result
-
-    tasks = [asyncio.create_task(process_item(item)) for item in sequence]
-
-    for task in asyncio.as_completed(tasks):
-        item, result = await task
-        yield item, result
-
 
 @weave.op()
-async def move_and_score(example, model):
-    position = example["position"]
-    move = await model.move(position)
-
+def score_move(example, prediction):
     scores = {ms["move"]: ms["score"] for ms in example["moves_scores"]}
     min_score = min(scores.values())
     max_score = max(scores.values())
@@ -44,47 +18,32 @@ async def move_and_score(example, model):
         move: (score - min_score) / range_scores for move, score in scores.items()
     }
 
-    eval_row = {}
+    scores = {}
 
-    ai_score = scores.get(move, min_score - 1)
-    normalized_ai_score = normalized_scores.get(
-        move, -0.3
-    )  # Default to -0.3 if move not in dataset
-
-    eval_row["raw_score"] = ai_score
-    eval_row["norm_score"] = normalized_ai_score
-
-    weighted_norm_score = math.sqrt(1 - normalized_ai_score)
-    eval_row["weighted_norm_score"] = weighted_norm_score
-    return eval_row
-
-
-@weave.op()
-async def eval_moves(dataset, model):
-    async def eval_example(example):
-        return await move_and_score(example, model)
-
-    eval_rows = []
-    async for example, eval_row in async_map(dataset.rows, eval_example, 100):
-        eval_rows.append(eval_row)
-
-    eval_table = weave.WeaveList(eval_rows)
-
+    ai_score = scores.get(prediction, min_score - 1)
+    normalized_ai_score = normalized_scores.get(prediction, -0.3)
     return {
-        "weighted_norm_score/avg": sum(eval_table.column("weighted_norm_score"))
-        / len(eval_table)
+        "ai_score": ai_score,
+        "normalized_ai_score": normalized_ai_score,
     }
 
 
 if __name__ == "__main__":
-    model = player_random.RandomPlayer()
-    system_message = """You are a fourth grader.
+    # model = player_random.RandomPlayer()
+    system_message = """You are a the most advanced chess AI ever created.
 You always think out loud through large trees of moves using SAN notation, before deciding on a final move.
 """
-    # model = player_llm.LLMPlayer(1, system_message, "gpt-3.5-turbo")
+    model = player_llm.LLMPlayer(2, system_message, "gpt-3.5-turbo")
 
     weave.init(project_settings.project_name)
 
     dataset = weave.ref("dataset-10").get()
 
-    asyncio.run(eval_moves(dataset, model))
+    @weave.op()
+    def example_to_model_input(example):
+        return example["position"]
+
+    evaluation = evaluate.Evaluation(
+        dataset, scores=[score_move], example_to_model_input=example_to_model_input
+    )
+    print(asyncio.run(evaluation.evaluate(model)))

@@ -1,1 +1,1 @@
-project_name = "wf-chess7"
+project_name = "wf-chess-neweval4"
